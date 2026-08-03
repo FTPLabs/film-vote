@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Голосование за фильмы"
+description = "Сайт анонимного голосования за фильмы на русском языке. Пользователи оценивают уровень ожидания каждого фильма, видят общий % ожидания. Ограничение по IP — один голос на фильм, но можно изменить. Есть админ-панель для управления списком фильмов."
+version = "1.0.0"
+id = "artifacts/film-vote"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18499
+
+[services.development]
+run = "pnpm --filter @workspace/film-vote run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/film-vote", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/film-vote/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18499"
+BASE_PATH = "/"
