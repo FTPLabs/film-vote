@@ -16,4 +16,6 @@ export * from './movieWithStats';
 export * from './stats';
 export * from './userVote';
 export * from './voteInput';
+export * from './voteInputVoteType';
 export * from './voteResult';
+export * from './voteResultVoteType';

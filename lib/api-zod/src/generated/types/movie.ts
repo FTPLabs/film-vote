@@ -13,5 +13,5 @@ export interface Movie {
   imageUrl: string;
   /** @nullable */
   year?: number | null;
-  createdAt: string;
+  createdAt: Date;
 }

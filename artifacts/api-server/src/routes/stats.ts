@@ -29,7 +29,7 @@ router.get("/stats", async (req, res): Promise<void> => {
   const totalMovies = Number(totalMoviesResult[0]?.count ?? 0);
   const totalVotes = Number(totalVotesResult[0]?.count ?? 0);
 
-  // Top 5 movies by expectation
+  // Top 5 movies sorted by "for" percentage
   const moviesRanked = await db
     .select({
       id: moviesTable.id,
@@ -39,22 +39,28 @@ router.get("/stats", async (req, res): Promise<void> => {
       year: moviesTable.year,
       createdAt: moviesTable.createdAt,
       totalVotes: sql<number>`count(${votesTable.id})::int`,
-      averageScore: sql<number>`coalesce(avg(${votesTable.score})::float, 0)`,
+      forCount: sql<number>`count(${votesTable.id}) filter (where ${votesTable.voteType} = 'for')::int`,
+      neutralCount: sql<number>`count(${votesTable.id}) filter (where ${votesTable.voteType} = 'neutral')::int`,
+      againstCount: sql<number>`count(${votesTable.id}) filter (where ${votesTable.voteType} = 'against')::int`,
     })
     .from(moviesTable)
     .leftJoin(votesTable, eq(votesTable.movieId, moviesTable.id))
     .groupBy(moviesTable.id)
-    .orderBy(desc(sql`coalesce(avg(${votesTable.score}), 0)`))
+    .orderBy(desc(sql`count(${votesTable.id}) filter (where ${votesTable.voteType} = 'for')`))
     .limit(5);
 
   const topMovies = await Promise.all(
     moviesRanked.map(async (m) => {
-      const totalVotesNum = Number(m.totalVotes ?? 0);
-      const avgScore = Number(m.averageScore ?? 0);
-      const expectationPercent = totalVotesNum > 0 ? Math.round((avgScore / 10) * 100) : 0;
+      const total = Number(m.totalVotes ?? 0);
+      const forC = Number(m.forCount ?? 0);
+      const neutralC = Number(m.neutralCount ?? 0);
+      const againstC = Number(m.againstCount ?? 0);
+      const forPercent = total > 0 ? Math.round((forC / total) * 100) : 0;
+      const neutralPercent = total > 0 ? Math.round((neutralC / total) * 100) : 0;
+      const againstPercent = total > 0 ? Math.round((againstC / total) * 100) : 0;
 
       const userVoteResult = await db
-        .select({ score: votesTable.score })
+        .select({ voteType: votesTable.voteType })
         .from(votesTable)
         .where(sql`${votesTable.movieId} = ${m.id} AND ${votesTable.ipAddress} = ${userIp}`);
 
@@ -65,10 +71,15 @@ router.get("/stats", async (req, res): Promise<void> => {
         imageUrl: m.imageUrl,
         year: m.year ?? null,
         createdAt: m.createdAt.toISOString(),
-        totalVotes: totalVotesNum,
-        averageScore: Math.round(avgScore * 10) / 10,
-        expectationPercent,
-        userVote: userVoteResult[0]?.score ?? null,
+        totalVotes: total,
+        forCount: forC,
+        neutralCount: neutralC,
+        againstCount: againstC,
+        forPercent,
+        neutralPercent,
+        againstPercent,
+        expectationPercent: forPercent,
+        userVote: userVoteResult[0]?.voteType ?? null,
       };
     })
   );

@@ -9,6 +9,9 @@
 export interface UserVote {
   movieId: number;
   voted: boolean;
-  /** @nullable */
-  score?: number | null;
+  /**
+     * User's vote type: 'for', 'neutral', 'against', or null
+     * @nullable
+     */
+  voteType?: string | null;
 }

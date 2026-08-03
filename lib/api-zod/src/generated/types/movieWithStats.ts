@@ -13,15 +13,19 @@ export interface MovieWithStats {
   imageUrl: string;
   /** @nullable */
   year?: number | null;
-  createdAt: string;
+  createdAt: Date;
   totalVotes: number;
-  /** Average score as percentage (0–100) */
+  forCount: number;
+  neutralCount: number;
+  againstCount: number;
+  forPercent: number;
+  neutralPercent: number;
+  againstPercent: number;
+  /** Same as forPercent, kept for backward compatibility */
   expectationPercent: number;
-  /** Average score (0–10) */
-  averageScore: number;
   /**
-     * Current user's vote score (1–10), null if not voted
+     * User's vote type: 'for', 'neutral', 'against', or null
      * @nullable
      */
-  userVote?: number | null;
+  userVote?: string | null;
 }

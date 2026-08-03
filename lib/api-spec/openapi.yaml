@@ -151,17 +151,15 @@ paths:
             type: number
       responses:
         "200":
-          description: User vote or null
+          description: User vote info
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserVote"
-        "404":
-          description: Movie not found
     post:
       operationId: castVote
       tags: [votes]
-      summary: Cast or update vote for a movie (IP-limited to one vote per IP)
+      summary: Cast or update a vote for a movie
       parameters:
         - name: id
           in: path
@@ -182,7 +180,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/VoteResult"
         "400":
-          description: Invalid score
+          description: Invalid vote
         "404":
           description: Movie not found
 
@@ -190,10 +188,10 @@ paths:
     get:
       operationId: getStats
       tags: [stats]
-      summary: Get overall voting stats (top movies, totals)
+      summary: Get overall statistics
       responses:
         "200":
-          description: Overall stats
+          description: Statistics
           content:
             application/json:
               schema:
@@ -218,22 +216,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminToken"
         "401":
-          description: Invalid password
+          description: Unauthorized
 
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: JWT
 
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
     Movie:
       type: object
@@ -251,10 +249,36 @@ components:
           type: ["number", "null"]
         createdAt:
           type: string
+          format: date-time
+
+    MovieInput:
+      type: object
+      required: [title, description, imageUrl]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        year:
+          type: ["number", "null"]
+
+    MoviePatch:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        year:
+          type: ["number", "null"]
 
     MovieWithStats:
       type: object
-      required: [id, title, description, imageUrl, createdAt, totalVotes, expectationPercent, averageScore]
+      required: [id, title, description, imageUrl, createdAt, totalVotes, forCount, neutralCount, againstCount, forPercent, neutralPercent, againstPercent, expectationPercent]
       properties:
         id:
           type: number
@@ -268,64 +292,45 @@ components:
           type: ["number", "null"]
         createdAt:
           type: string
+          format: date-time
         totalVotes:
+          type: number
+        forCount:
+          type: number
+        neutralCount:
+          type: number
+        againstCount:
+          type: number
+        forPercent:
+          type: number
+        neutralPercent:
+          type: number
+        againstPercent:
           type: number
         expectationPercent:
           type: number
-          description: Average score as percentage (0–100)
-        averageScore:
-          type: number
-          description: Average score (0–10)
+          description: Same as forPercent, kept for backward compatibility
         userVote:
-          type: ["number", "null"]
-          description: Current user's vote score (1–10), null if not voted
-
-    MovieInput:
-      type: object
-      required: [title, description, imageUrl]
-      properties:
-        title:
-          type: string
-          minLength: 1
-        description:
-          type: string
-          minLength: 1
-        imageUrl:
-          type: string
-        year:
-          type: ["number", "null"]
-
-    MoviePatch:
-      type: object
-      properties:
-        title:
-          type: string
-          minLength: 1
-        description:
-          type: string
-          minLength: 1
-        imageUrl:
-          type: string
-        year:
-          type: ["number", "null"]
+          type: ["string", "null"]
+          description: "User's vote type: 'for', 'neutral', 'against', or null"
 
     VoteInput:
       type: object
-      required: [score]
+      required: [voteType]
       properties:
-        score:
-          type: number
-          minimum: 1
-          maximum: 10
+        voteType:
+          type: string
+          enum: [for, neutral, against]
 
     VoteResult:
       type: object
-      required: [movieId, score, isNew]
+      required: [movieId, voteType, isNew]
       properties:
         movieId:
           type: number
-        score:
-          type: number
+        voteType:
+          type: string
+          enum: [for, neutral, against]
         isNew:
           type: boolean
           description: True if this is a new vote, false if updated
@@ -338,8 +343,9 @@ components:
           type: number
         voted:
           type: boolean
-        score:
-          type: ["number", "null"]
+        voteType:
+          type: ["string", "null"]
+          description: "User's vote type: 'for', 'neutral', 'against', or null"
 
     Stats:
       type: object
@@ -353,7 +359,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MovieWithStats"
-          description: Top 5 movies by expectation percentage
+          description: Top 5 movies by "for" percentage
 
     AdminCredentials:
       type: object

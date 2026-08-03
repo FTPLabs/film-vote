@@ -5,11 +5,8 @@
  * API specification for Film Vote — Russian anonymous movie voting app
  * OpenAPI spec version: 0.1.0
  */
+import type { VoteInputVoteType } from './voteInputVoteType';
 
 export interface VoteInput {
-  /**
-     * @minimum 1
-     * @maximum 10
-     */
-  score: number;
+  voteType: VoteInputVoteType;
 }

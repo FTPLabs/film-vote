@@ -539,7 +539,7 @@ export const getGetMyVoteQueryKey = (id: number,) => {
     }
 
 
-export const getGetMyVoteQueryOptions = <TData = Awaited<ReturnType<typeof getMyVote>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyVote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetMyVoteQueryOptions = <TData = Awaited<ReturnType<typeof getMyVote>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyVote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -558,14 +558,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetMyVoteQueryResult = NonNullable<Awaited<ReturnType<typeof getMyVote>>>
-export type GetMyVoteQueryError = ErrorType<void>
+export type GetMyVoteQueryError = ErrorType<unknown>
 
 
 /**
  * @summary Get current user's vote for a movie (by IP)
  */
 
-export function useGetMyVote<TData = Awaited<ReturnType<typeof getMyVote>>, TError = ErrorType<void>>(
+export function useGetMyVote<TData = Awaited<ReturnType<typeof getMyVote>>, TError = ErrorType<unknown>>(
  id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyVote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -592,7 +592,7 @@ export const getCastVoteUrl = (id: number,) => {
 }
 
 /**
- * @summary Cast or update vote for a movie (IP-limited to one vote per IP)
+ * @summary Cast or update a vote for a movie
  */
 export const castVote = async (id: number,
     voteInput: VoteInput, options?: Parameters<typeof customFetch>[1]): Promise<VoteResult> => {
@@ -642,7 +642,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CastVoteMutationError = ErrorType<void>
 
     /**
- * @summary Cast or update vote for a movie (IP-limited to one vote per IP)
+ * @summary Cast or update a vote for a movie
  */
 export const useCastVote = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof castVote>>, TError,{id: number;data: BodyType<VoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -664,7 +664,7 @@ export const getGetStatsUrl = () => {
 }
 
 /**
- * @summary Get overall voting stats (top movies, totals)
+ * @summary Get overall statistics
  */
 export const getStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<Stats> => {
 
@@ -711,7 +711,7 @@ export type GetStatsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get overall voting stats (top movies, totals)
+ * @summary Get overall statistics
  */
 
 export function useGetStats<TData = Awaited<ReturnType<typeof getStats>>, TError = ErrorType<unknown>>(

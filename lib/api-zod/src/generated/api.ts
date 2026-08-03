@@ -26,11 +26,16 @@ export const ListMoviesResponseItem = zod.object({
   "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish(),
-  "createdAt": zod.string(),
+  "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
-  "expectationPercent": zod.number().describe('Average score as percentage (0–100)'),
-  "averageScore": zod.number().describe('Average score (0–10)'),
-  "userVote": zod.number().nullish().describe('Current user\'s vote score (1–10), null if not voted')
+  "forCount": zod.number(),
+  "neutralCount": zod.number(),
+  "againstCount": zod.number(),
+  "forPercent": zod.number(),
+  "neutralPercent": zod.number(),
+  "againstPercent": zod.number(),
+  "expectationPercent": zod.number().describe('Same as forPercent, kept for backward compatibility'),
+  "userVote": zod.string().nullish().describe('User\'s vote type: \'for\', \'neutral\', \'against\', or null')
 })
 export const ListMoviesResponse = zod.array(ListMoviesResponseItem)
 
@@ -38,13 +43,9 @@ export const ListMoviesResponse = zod.array(ListMoviesResponseItem)
 /**
  * @summary Create a new movie (admin only)
  */
-
-
-
-
 export const CreateMovieBody = zod.object({
-  "title": zod.string().min(1),
-  "description": zod.string().min(1),
+  "title": zod.string(),
+  "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish()
 })
@@ -55,7 +56,7 @@ export const CreateMovieResponse = zod.object({
   "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -72,11 +73,16 @@ export const GetMovieResponse = zod.object({
   "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish(),
-  "createdAt": zod.string(),
+  "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
-  "expectationPercent": zod.number().describe('Average score as percentage (0–100)'),
-  "averageScore": zod.number().describe('Average score (0–10)'),
-  "userVote": zod.number().nullish().describe('Current user\'s vote score (1–10), null if not voted')
+  "forCount": zod.number(),
+  "neutralCount": zod.number(),
+  "againstCount": zod.number(),
+  "forPercent": zod.number(),
+  "neutralPercent": zod.number(),
+  "againstPercent": zod.number(),
+  "expectationPercent": zod.number().describe('Same as forPercent, kept for backward compatibility'),
+  "userVote": zod.string().nullish().describe('User\'s vote type: \'for\', \'neutral\', \'against\', or null')
 })
 
 
@@ -87,13 +93,9 @@ export const UpdateMovieParams = zod.object({
   "id": zod.coerce.number()
 })
 
-
-
-
-
 export const UpdateMovieBody = zod.object({
-  "title": zod.string().min(1).optional(),
-  "description": zod.string().min(1).optional(),
+  "title": zod.string().optional(),
+  "description": zod.string().optional(),
   "imageUrl": zod.string().optional(),
   "year": zod.number().nullish()
 })
@@ -104,7 +106,7 @@ export const UpdateMovieResponse = zod.object({
   "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -128,34 +130,30 @@ export const GetMyVoteParams = zod.object({
 export const GetMyVoteResponse = zod.object({
   "movieId": zod.number(),
   "voted": zod.boolean(),
-  "score": zod.number().nullish()
+  "voteType": zod.string().nullish().describe('User\'s vote type: \'for\', \'neutral\', \'against\', or null')
 })
 
 
 /**
- * @summary Cast or update vote for a movie (IP-limited to one vote per IP)
+ * @summary Cast or update a vote for a movie
  */
 export const CastVoteParams = zod.object({
   "id": zod.coerce.number()
 })
 
-export const castVoteBodyScoreMax = 10;
-
-
-
 export const CastVoteBody = zod.object({
-  "score": zod.number().min(1).max(castVoteBodyScoreMax)
+  "voteType": zod.enum(['for', 'neutral', 'against'])
 })
 
 export const CastVoteResponse = zod.object({
   "movieId": zod.number(),
-  "score": zod.number(),
+  "voteType": zod.enum(['for', 'neutral', 'against']),
   "isNew": zod.boolean().describe('True if this is a new vote, false if updated')
 })
 
 
 /**
- * @summary Get overall voting stats (top movies, totals)
+ * @summary Get overall statistics
  */
 export const GetStatsResponse = zod.object({
   "totalMovies": zod.number(),
@@ -166,12 +164,17 @@ export const GetStatsResponse = zod.object({
   "description": zod.string(),
   "imageUrl": zod.string(),
   "year": zod.number().nullish(),
-  "createdAt": zod.string(),
+  "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
-  "expectationPercent": zod.number().describe('Average score as percentage (0–100)'),
-  "averageScore": zod.number().describe('Average score (0–10)'),
-  "userVote": zod.number().nullish().describe('Current user\'s vote score (1–10), null if not voted')
-})).describe('Top 5 movies by expectation percentage')
+  "forCount": zod.number(),
+  "neutralCount": zod.number(),
+  "againstCount": zod.number(),
+  "forPercent": zod.number(),
+  "neutralPercent": zod.number(),
+  "againstPercent": zod.number(),
+  "expectationPercent": zod.number().describe('Same as forPercent, kept for backward compatibility'),
+  "userVote": zod.string().nullish().describe('User\'s vote type: \'for\', \'neutral\', \'against\', or null')
+})).describe('Top 5 movies by \"for\" percentage')
 })
 
 

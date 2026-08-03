@@ -7,7 +7,7 @@ export const votesTable = pgTable("votes", {
   id: serial("id").primaryKey(),
   movieId: integer("movie_id").notNull().references(() => moviesTable.id, { onDelete: "cascade" }),
   ipAddress: text("ip_address").notNull(),
-  score: integer("score").notNull(), // 1-10
+  voteType: text("vote_type").notNull(), // 'for' | 'neutral' | 'against'
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

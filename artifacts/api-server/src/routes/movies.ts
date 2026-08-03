@@ -28,34 +28,28 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
   const voteStats = await db
     .select({
       totalVotes: sql<number>`count(*)::int`,
-      averageScore: sql<number>`coalesce(avg(${votesTable.score})::float, 0)`,
+      forCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'for')::int`,
+      neutralCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'neutral')::int`,
+      againstCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'against')::int`,
     })
     .from(votesTable)
     .where(eq(votesTable.movieId, movie.id));
 
-  const userVoteRow = await db
-    .select({ score: votesTable.score })
-    .from(votesTable)
-    .where(eq(votesTable.movieId, movie.id))
-    .then(rows => rows.find(r => true)); // placeholder - we query by ip below
-
-  const userVoteByIp = await db
-    .select({ score: votesTable.score })
-    .from(votesTable)
-    .where(eq(votesTable.movieId, movie.id))
-    .then(rows => rows); // We'll filter by IP in route
-
   const totalVotes = Number(voteStats[0]?.totalVotes ?? 0);
-  const averageScore = Number(voteStats[0]?.averageScore ?? 0);
-  const expectationPercent = totalVotes > 0 ? Math.round((averageScore / 10) * 100) : 0;
+  const forCount = Number(voteStats[0]?.forCount ?? 0);
+  const neutralCount = Number(voteStats[0]?.neutralCount ?? 0);
+  const againstCount = Number(voteStats[0]?.againstCount ?? 0);
 
-  // Get user vote by IP
+  const forPercent = totalVotes > 0 ? Math.round((forCount / totalVotes) * 100) : 0;
+  const neutralPercent = totalVotes > 0 ? Math.round((neutralCount / totalVotes) * 100) : 0;
+  const againstPercent = totalVotes > 0 ? Math.round((againstCount / totalVotes) * 100) : 0;
+
   const userVoteResult = await db
-    .select({ score: votesTable.score })
+    .select({ voteType: votesTable.voteType })
     .from(votesTable)
     .where(sql`${votesTable.movieId} = ${movie.id} AND ${votesTable.ipAddress} = ${userIp}`);
 
-  const userVote = userVoteResult[0]?.score ?? null;
+  const userVote = userVoteResult[0]?.voteType ?? null;
 
   return {
     id: movie.id,
@@ -65,29 +59,32 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
     year: movie.year ?? null,
     createdAt: movie.createdAt.toISOString(),
     totalVotes,
-    averageScore: Math.round(averageScore * 10) / 10,
-    expectationPercent,
+    forCount,
+    neutralCount,
+    againstCount,
+    forPercent,
+    neutralPercent,
+    againstPercent,
+    expectationPercent: forPercent,
     userVote,
   };
 }
 
-// GET /movies — list all with stats
+// GET /movies
 router.get("/movies", async (req, res): Promise<void> => {
   const userIp = getClientIp(req);
   const movies = await db.select().from(moviesTable).orderBy(desc(moviesTable.createdAt));
-
   const moviesWithStats = await Promise.all(movies.map(m => buildMovieWithStats(m, userIp)));
   res.json(moviesWithStats);
 });
 
-// POST /movies — create (admin only)
+// POST /movies (admin)
 router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
   const parsed = CreateMovieBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
   const [movie] = await db
     .insert(moviesTable)
     .values({
@@ -97,7 +94,6 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
       year: parsed.data.year ?? null,
     })
     .returning();
-
   res.status(201).json({
     id: movie!.id,
     title: movie!.title,
@@ -108,59 +104,48 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
   });
 });
 
-// GET /movies/:id — single movie with stats
+// GET /movies/:id
 router.get("/movies/:id", async (req, res): Promise<void> => {
   const params = GetMovieParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-
   const userIp = getClientIp(req);
-  const [movie] = await db
-    .select()
-    .from(moviesTable)
-    .where(eq(moviesTable.id, params.data.id));
-
+  const [movie] = await db.select().from(moviesTable).where(eq(moviesTable.id, params.data.id));
   if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-
   res.json(await buildMovieWithStats(movie, userIp));
 });
 
-// PATCH /movies/:id — update (admin only)
+// PATCH /movies/:id (admin)
 router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> => {
   const params = UpdateMovieParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-
   const parsed = UpdateMovieBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
-  const updateData: Record<string, unknown> = {};
-  if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-  if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
-  if (parsed.data.imageUrl !== undefined) updateData.imageUrl = parsed.data.imageUrl;
-  if (parsed.data.year !== undefined) updateData.year = parsed.data.year;
-
   const [movie] = await db
     .update(moviesTable)
-    .set(updateData)
+    .set({
+      title: parsed.data.title,
+      description: parsed.data.description,
+      imageUrl: parsed.data.imageUrl,
+      year: parsed.data.year ?? null,
+    })
     .where(eq(moviesTable.id, params.data.id))
     .returning();
-
   if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-
   res.json({
     id: movie.id,
     title: movie.title,
@@ -171,109 +156,83 @@ router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =>
   });
 });
 
-// DELETE /movies/:id — delete (admin only)
+// DELETE /movies/:id (admin)
 router.delete("/movies/:id", verifyAdminToken, async (req, res): Promise<void> => {
   const params = DeleteMovieParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-
-  const [deleted] = await db
-    .delete(moviesTable)
-    .where(eq(moviesTable.id, params.data.id))
-    .returning();
-
-  if (!deleted) {
+  const [movie] = await db.select({ id: moviesTable.id }).from(moviesTable).where(eq(moviesTable.id, params.data.id));
+  if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-
-  res.sendStatus(204);
+  await db.delete(moviesTable).where(eq(moviesTable.id, params.data.id));
+  res.status(204).end();
 });
 
-// GET /movies/:id/vote — get user's vote
+// GET /movies/:id/vote
 router.get("/movies/:id/vote", async (req, res): Promise<void> => {
   const params = GetMyVoteParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-
   const userIp = getClientIp(req);
-  const [movie] = await db.select({ id: moviesTable.id }).from(moviesTable).where(eq(moviesTable.id, params.data.id));
-
-  if (!movie) {
-    res.status(404).json({ error: "Фильм не найден" });
-    return;
-  }
-
-  const [vote] = await db
-    .select({ score: votesTable.score })
+  const userVoteResult = await db
+    .select({ voteType: votesTable.voteType })
     .from(votesTable)
     .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
-
+  const voteType = userVoteResult[0]?.voteType ?? null;
   res.json({
     movieId: params.data.id,
-    voted: !!vote,
-    score: vote?.score ?? null,
+    voted: voteType !== null,
+    voteType,
   });
 });
 
-// POST /movies/:id/vote — cast or update vote
+// POST /movies/:id/vote
 router.post("/movies/:id/vote", async (req, res): Promise<void> => {
   const params = CastVoteParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-
   const parsed = CastVoteBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Оценка должна быть числом от 1 до 10" });
+    res.status(400).json({ error: "Тип голоса должен быть: for, neutral или against" });
     return;
   }
-
-  const score = parsed.data.score;
-  if (score < 1 || score > 10) {
-    res.status(400).json({ error: "Оценка должна быть от 1 до 10" });
+  const voteType = (parsed.data as unknown as { voteType: string }).voteType;
+  if (!['for', 'neutral', 'against'].includes(voteType)) {
+    res.status(400).json({ error: "Тип голоса должен быть: for, neutral или against" });
     return;
   }
-
   const userIp = getClientIp(req);
-
   const [movie] = await db.select({ id: moviesTable.id }).from(moviesTable).where(eq(moviesTable.id, params.data.id));
   if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-
-  // Upsert vote
   const existingVotes = await db
     .select({ id: votesTable.id })
     .from(votesTable)
     .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
-
   const isNew = existingVotes.length === 0;
-
   if (isNew) {
     await db.insert(votesTable).values({
       movieId: params.data.id,
       ipAddress: userIp,
-      score,
+      voteType,
     });
   } else {
     await db
       .update(votesTable)
-      .set({ score })
+      .set({ voteType })
       .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
   }
-
-  res.json({
-    movieId: params.data.id,
-    score,
-    isNew,
-  });
+  res.json({ movieId: params.data.id, voteType, isNew });
 });
 
 export default router;

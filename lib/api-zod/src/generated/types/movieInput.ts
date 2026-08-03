@@ -7,9 +7,7 @@
  */
 
 export interface MovieInput {
-  /** @minLength 1 */
   title: string;
-  /** @minLength 1 */
   description: string;
   imageUrl: string;
   /** @nullable */

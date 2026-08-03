@@ -19,6 +19,22 @@ export interface Movie {
   createdAt: string;
 }
 
+export interface MovieInput {
+  title: string;
+  description: string;
+  imageUrl: string;
+  /** @nullable */
+  year?: number | null;
+}
+
+export interface MoviePatch {
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  /** @nullable */
+  year?: number | null;
+}
+
 export interface MovieWithStats {
   id: number;
   title: string;
@@ -28,48 +44,46 @@ export interface MovieWithStats {
   year?: number | null;
   createdAt: string;
   totalVotes: number;
-  /** Average score as percentage (0–100) */
+  forCount: number;
+  neutralCount: number;
+  againstCount: number;
+  forPercent: number;
+  neutralPercent: number;
+  againstPercent: number;
+  /** Same as forPercent, kept for backward compatibility */
   expectationPercent: number;
-  /** Average score (0–10) */
-  averageScore: number;
   /**
-     * Current user's vote score (1–10), null if not voted
+     * User's vote type: 'for', 'neutral', 'against', or null
      * @nullable
      */
-  userVote?: number | null;
+  userVote?: string | null;
 }
 
-export interface MovieInput {
-  /** @minLength 1 */
-  title: string;
-  /** @minLength 1 */
-  description: string;
-  imageUrl: string;
-  /** @nullable */
-  year?: number | null;
-}
+export type VoteInputVoteType = typeof VoteInputVoteType[keyof typeof VoteInputVoteType];
 
-export interface MoviePatch {
-  /** @minLength 1 */
-  title?: string;
-  /** @minLength 1 */
-  description?: string;
-  imageUrl?: string;
-  /** @nullable */
-  year?: number | null;
-}
+
+export const VoteInputVoteType = {
+  for: 'for',
+  neutral: 'neutral',
+  against: 'against',
+} as const;
 
 export interface VoteInput {
-  /**
-     * @minimum 1
-     * @maximum 10
-     */
-  score: number;
+  voteType: VoteInputVoteType;
 }
+
+export type VoteResultVoteType = typeof VoteResultVoteType[keyof typeof VoteResultVoteType];
+
+
+export const VoteResultVoteType = {
+  for: 'for',
+  neutral: 'neutral',
+  against: 'against',
+} as const;
 
 export interface VoteResult {
   movieId: number;
-  score: number;
+  voteType: VoteResultVoteType;
   /** True if this is a new vote, false if updated */
   isNew: boolean;
 }
@@ -77,14 +91,17 @@ export interface VoteResult {
 export interface UserVote {
   movieId: number;
   voted: boolean;
-  /** @nullable */
-  score?: number | null;
+  /**
+     * User's vote type: 'for', 'neutral', 'against', or null
+     * @nullable
+     */
+  voteType?: string | null;
 }
 
 export interface Stats {
   totalMovies: number;
   totalVotes: number;
-  /** Top 5 movies by expectation percentage */
+  /** Top 5 movies by "for" percentage */
   topMovies: MovieWithStats[];
 }
 

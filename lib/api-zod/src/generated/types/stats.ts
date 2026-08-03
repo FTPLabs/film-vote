@@ -10,6 +10,6 @@ import type { MovieWithStats } from './movieWithStats';
 export interface Stats {
   totalMovies: number;
   totalVotes: number;
-  /** Top 5 movies by expectation percentage */
+  /** Top 5 movies by "for" percentage */
   topMovies: MovieWithStats[];
 }
