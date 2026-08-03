@@ -235,4 +235,14 @@ router.post("/movies/:id/vote", async (req, res): Promise<void> => {
   res.json({ movieId: params.data.id, voteType, isNew });
 });
 
+// DELETE /movies/:id/votes (admin) — сброс статистики
+router.delete("/movies/:id/votes", verifyAdminToken, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid movie id" }); return; }
+  const [movie] = await db.select({ id: moviesTable.id }).from(moviesTable).where(eq(moviesTable.id, id));
+  if (!movie) { res.status(404).json({ error: "Фильм не найден" }); return; }
+  const result = await db.delete(votesTable).where(eq(votesTable.movieId, id));
+  res.json({ movieId: id, deleted: true });
+});
+
 export default router;

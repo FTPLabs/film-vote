@@ -13,7 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
-  Plus, Edit, Trash2, LogOut, Loader2, Image as ImageIcon, Film 
+  Plus, Edit, Trash2, RotateCcw, LogOut, Loader2, Image as ImageIcon, Film 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +137,22 @@ export function AdminDashboard() {
     }
   };
 
+  const handleResetVotes = async (id: number, title: string) => {
+    if (!confirm(`Сбросить всю статистику голосования для ""?`)) return;
+    try {
+      const res = await fetch(`/api/movies/${id}/votes`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Статистика сброшена");
+      queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });
+    } catch {
+      toast.error("Ошибка при сбросе");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/admin");
@@ -210,6 +226,15 @@ export function AdminDashboard() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-100"
+                          onClick={() => handleResetVotes(movie.id, movie.title)}
+                          title="Сбросить статистику"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
