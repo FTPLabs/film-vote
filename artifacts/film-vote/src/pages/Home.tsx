@@ -52,7 +52,7 @@ function AnimatedHeader() {
   );
 }
 
-function MovieGrid({ movies }: { movies: ReturnType<typeof useListMovies>["data"] }) {
+function MovieGrid({ movies }: { movies: import("@workspace/api-client-react").MovieWithStats[] | undefined }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-50px" });
 

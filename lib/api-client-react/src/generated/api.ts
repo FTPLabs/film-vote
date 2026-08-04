@@ -592,7 +592,7 @@ export const getCastVoteUrl = (id: number,) => {
 }
 
 /**
- * @summary Cast or update a vote for a movie
+ * @summary Cast or update a vote
  */
 export const castVote = async (id: number,
     voteInput: VoteInput, options?: Parameters<typeof customFetch>[1]): Promise<VoteResult> => {
@@ -610,7 +610,7 @@ export const castVote = async (id: number,
 
 
 
-export const getCastVoteMutationOptions = <TError = ErrorType<void>,
+export const getCastVoteMutationOptions = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof castVote>>, TError,{id: number;data: BodyType<VoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof castVote>>, TError,{id: number;data: BodyType<VoteInput>}, TContext> => {
 
@@ -639,12 +639,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CastVoteMutationResult = NonNullable<Awaited<ReturnType<typeof castVote>>>
     export type CastVoteMutationBody = BodyType<VoteInput>
-    export type CastVoteMutationError = ErrorType<void>
+    export type CastVoteMutationError = ErrorType<unknown>
 
     /**
- * @summary Cast or update a vote for a movie
+ * @summary Cast or update a vote
  */
-export const useCastVote = <TError = ErrorType<void>,
+export const useCastVote = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof castVote>>, TError,{id: number;data: BodyType<VoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof castVote>>,
@@ -653,6 +653,77 @@ export const useCastVote = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCastVoteMutationOptions(options));
+    }
+
+export const getResetVotesUrl = (id: number,) => {
+
+
+
+
+  return `/api/movies/${id}/votes`
+}
+
+/**
+ * @summary Reset all votes for a movie (admin only)
+ */
+export const resetVotes = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getResetVotesUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getResetVotesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetVotes>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetVotes>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resetVotes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetVotes>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resetVotes(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetVotesMutationResult = NonNullable<Awaited<ReturnType<typeof resetVotes>>>
+
+    export type ResetVotesMutationError = ErrorType<void>
+
+    /**
+ * @summary Reset all votes for a movie (admin only)
+ */
+export const useResetVotes = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetVotes>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetVotes>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResetVotesMutationOptions(options));
     }
 
 export const getGetStatsUrl = () => {
@@ -664,7 +735,7 @@ export const getGetStatsUrl = () => {
 }
 
 /**
- * @summary Get overall statistics
+ * @summary Get overall voting statistics
  */
 export const getStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<Stats> => {
 
@@ -711,7 +782,7 @@ export type GetStatsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get overall statistics
+ * @summary Get overall voting statistics
  */
 
 export function useGetStats<TData = Awaited<ReturnType<typeof getStats>>, TError = ErrorType<unknown>>(

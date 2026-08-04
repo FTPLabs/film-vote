@@ -57,6 +57,7 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
     description: movie.description,
     imageUrl: movie.imageUrl,
     trailerUrl: movie.trailerUrl ?? null,
+    clipUrl: movie.clipUrl ?? null,
     year: movie.year ?? null,
     createdAt: movie.createdAt.toISOString(),
     totalVotes,
@@ -86,7 +87,7 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const body = parsed.data as typeof parsed.data & { trailerUrl?: string | null };
+  const body = parsed.data;
   const [movie] = await db
     .insert(moviesTable)
     .values({
@@ -94,6 +95,7 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
       description: body.description,
       imageUrl: body.imageUrl,
       trailerUrl: body.trailerUrl ?? null,
+      clipUrl: body.clipUrl ?? null,
       year: body.year ?? null,
     })
     .returning();
@@ -103,6 +105,7 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
     description: movie!.description,
     imageUrl: movie!.imageUrl,
     trailerUrl: movie!.trailerUrl ?? null,
+    clipUrl: movie!.clipUrl ?? null,
     year: movie!.year ?? null,
     createdAt: movie!.createdAt.toISOString(),
   });
@@ -121,7 +124,8 @@ router.get("/movies/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-  res.json(await buildMovieWithStats(movie, userIp));
+  const result = await buildMovieWithStats(movie, userIp);
+  res.json(result);
 });
 
 // PATCH /movies/:id (admin)
@@ -136,12 +140,13 @@ router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const body = parsed.data as typeof parsed.data & { trailerUrl?: string | null };
-  const updateData: Partial<typeof moviesTable.$inferInsert> = {};
+  const body = parsed.data;
+  const updateData: Record<string, unknown> = {};
   if (body.title !== undefined) updateData.title = body.title;
   if (body.description !== undefined) updateData.description = body.description;
   if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl;
   if ("trailerUrl" in body) updateData.trailerUrl = body.trailerUrl ?? null;
+  if ("clipUrl" in body) updateData.clipUrl = body.clipUrl ?? null;
   if ("year" in body) updateData.year = body.year ?? null;
 
   const [movie] = await db
@@ -159,6 +164,7 @@ router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =>
     description: movie.description,
     imageUrl: movie.imageUrl,
     trailerUrl: movie.trailerUrl ?? null,
+    clipUrl: movie.clipUrl ?? null,
     year: movie.year ?? null,
     createdAt: movie.createdAt.toISOString(),
   });
@@ -176,7 +182,6 @@ router.delete("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-  await db.delete(votesTable).where(eq(votesTable.movieId, params.data.id));
   await db.delete(moviesTable).where(eq(moviesTable.id, params.data.id));
   res.status(204).send();
 });
@@ -189,11 +194,10 @@ router.get("/movies/:id/vote", async (req, res): Promise<void> => {
     return;
   }
   const userIp = getClientIp(req);
-  const voteResult = await db
+  const [vote] = await db
     .select({ voteType: votesTable.voteType })
     .from(votesTable)
     .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
-  const vote = voteResult[0];
   res.json({ movieId: params.data.id, voted: !!vote, voteType: vote?.voteType ?? null });
 });
 
@@ -210,7 +214,7 @@ router.post("/movies/:id/vote", async (req, res): Promise<void> => {
     return;
   }
   const voteType = (parsed.data as unknown as { voteType: string }).voteType;
-  if (!['for', 'neutral', 'against'].includes(voteType)) {
+  if (!["for", "neutral", "against"].includes(voteType)) {
     res.status(400).json({ error: "Тип голоса должен быть: for, neutral или against" });
     return;
   }

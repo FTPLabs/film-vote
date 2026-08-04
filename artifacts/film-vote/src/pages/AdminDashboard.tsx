@@ -13,7 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
-  Plus, Edit, Trash2, RotateCcw, LogOut, Loader2, Film, Upload, Link as LinkIcon, X
+  Plus, Edit, Trash2, RotateCcw, LogOut, Loader2, Film, Upload, Link as LinkIcon, X, Video
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,19 @@ async function uploadImage(file: File, token: string): Promise<string> {
   return data.url;
 }
 
+async function uploadClip(file: File, token: string): Promise<string> {
+  const formData = new FormData();
+  formData.append("clip", file);
+  const res = await fetch("/api/upload/clip", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Ошибка загрузки клипа");
+  const data = await res.json() as { url: string };
+  return data.url;
+}
+
 export function AdminDashboard() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -75,6 +88,7 @@ export function AdminDashboard() {
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [trailerUrl, setTrailerUrl] = useState("");
+  const [clipUrl, setClipUrl] = useState("");
   const [year, setYear] = useState<string>("");
   const [imageMode, setImageMode] = useState<"url" | "file">("url");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -82,16 +96,27 @@ export function AdminDashboard() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Clip upload state
+  const [clipMode, setClipMode] = useState<"url" | "file">("url");
+  const [clipFile, setClipFile] = useState<File | null>(null);
+  const [clipFileName, setClipFileName] = useState<string | null>(null);
+  const [isUploadingClip, setIsUploadingClip] = useState(false);
+  const clipFileRef = useRef<HTMLInputElement>(null);
+
   const resetForm = () => {
     setEditingId(null);
     setTitle("");
     setDescription("");
     setImageUrl("");
     setTrailerUrl("");
+    setClipUrl("");
     setYear("");
     setImageMode("url");
     setUploadFile(null);
     setUploadPreview(null);
+    setClipMode("url");
+    setClipFile(null);
+    setClipFileName(null);
   };
 
   const openAddModal = () => {
@@ -104,11 +129,15 @@ export function AdminDashboard() {
     setTitle(movie.title);
     setDescription(movie.description);
     setImageUrl(movie.imageUrl);
-    setTrailerUrl((movie as unknown as { trailerUrl?: string | null }).trailerUrl ?? "");
+    setTrailerUrl(movie.trailerUrl ?? "");
+    setClipUrl(movie.clipUrl ?? "");
     setYear(movie.year ? movie.year.toString() : "");
     setImageMode("url");
     setUploadFile(null);
     setUploadPreview(null);
+    setClipMode("url");
+    setClipFile(null);
+    setClipFileName(null);
     setIsModalOpen(true);
   };
 
@@ -121,6 +150,13 @@ export function AdminDashboard() {
     reader.readAsDataURL(file);
   };
 
+  const handleClipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setClipFile(file);
+    setClipFileName(file.name);
+  };
+
   const handleSave = async () => {
     if (!title.trim() || !description.trim()) {
       toast.error("Заполните обязательные поля (Название и Описание)");
@@ -128,6 +164,7 @@ export function AdminDashboard() {
     }
 
     let finalImageUrl = imageUrl;
+    let finalClipUrl = clipUrl;
 
     if (imageMode === "file" && uploadFile) {
       setIsUploading(true);
@@ -141,11 +178,24 @@ export function AdminDashboard() {
       setIsUploading(false);
     }
 
+    if (clipMode === "file" && clipFile) {
+      setIsUploadingClip(true);
+      try {
+        finalClipUrl = await uploadClip(clipFile, token!);
+      } catch {
+        toast.error("Не удалось загрузить клип");
+        setIsUploadingClip(false);
+        return;
+      }
+      setIsUploadingClip(false);
+    }
+
     const payload = {
       title,
       description,
       imageUrl: finalImageUrl,
       trailerUrl: trailerUrl.trim() || null,
+      clipUrl: finalClipUrl.trim() || null,
       year: year ? parseInt(year, 10) : null
     };
 
@@ -209,6 +259,8 @@ export function AdminDashboard() {
     setLocation("/admin");
   };
 
+  const isBusy = createMovie.isPending || updateMovie.isPending || isUploading || isUploadingClip;
+
   return (
     <div className="space-y-6 pb-16">
       <motion.div
@@ -258,6 +310,11 @@ export function AdminDashboard() {
                   <p className="text-white font-display font-bold text-sm leading-tight line-clamp-2">{movie.title}</p>
                   {movie.year && <p className="text-white/60 text-xs">{movie.year}</p>}
                 </div>
+                {movie.clipUrl && (
+                  <div className="absolute top-2 right-2 bg-black/60 rounded-full p-1" title="Есть клип">
+                    <Video className="w-3 h-3 text-green-400" />
+                  </div>
+                )}
               </div>
               <div className="p-3 flex gap-2">
                 <div className="flex-1 text-xs text-muted-foreground">
@@ -279,115 +336,73 @@ export function AdminDashboard() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={(o) => { if (!o) { setIsModalOpen(false); resetForm(); } }}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">
-              {editingId ? "✏️ Редактировать фильм" : "🎬 Добавить фильм"}
+            <DialogTitle className="text-xl font-display">
+              {editingId ? "✏️ Редактировать фильм" : "➕ Добавить фильм"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold ml-1">Название <span className="text-destructive">*</span></label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Название фильма" className="bg-secondary/30" />
-            </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <label className="text-sm font-semibold ml-1">Название <span className="text-destructive">*</span></label>
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Название фильма" className="bg-secondary/30" />
+              </div>
+              <div className="space-y-2 col-span-2 sm:col-span-1">
                 <label className="text-sm font-semibold ml-1">Год</label>
-                <Input value={year} onChange={e => setYear(e.target.value)} placeholder="2024" type="number" className="bg-secondary/30" />
+                <Input value={year} onChange={e => setYear(e.target.value)} type="number" placeholder="1999" className="bg-secondary/30" />
               </div>
             </div>
 
-            {/* Постер — URL или загрузка */}
+            {/* Image section */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold ml-1">Постер</label>
-                <div className="flex rounded-lg border overflow-hidden text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setImageMode("url")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
-                      imageMode === "url" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-                    )}
-                  >
-                    <LinkIcon className="w-3 h-3" /> Ссылка
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImageMode("file")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 transition-colors",
-                      imageMode === "file" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-                    )}
-                  >
-                    <Upload className="w-3 h-3" /> С компьютера
-                  </button>
-                </div>
+              <label className="text-sm font-semibold ml-1">Постер <span className="text-destructive">*</span></label>
+              <div className="flex gap-2 mb-2">
+                <Button type="button" size="sm" variant={imageMode === "url" ? "default" : "outline"}
+                  className="gap-1.5 text-xs h-7" onClick={() => setImageMode("url")}>
+                  <LinkIcon className="w-3 h-3" /> По ссылке
+                </Button>
+                <Button type="button" size="sm" variant={imageMode === "file" ? "default" : "outline"}
+                  className="gap-1.5 text-xs h-7" onClick={() => setImageMode("file")}>
+                  <Upload className="w-3 h-3" /> С компьютера
+                </Button>
               </div>
-
               <AnimatePresence mode="wait">
                 {imageMode === "url" ? (
-                  <motion.div
-                    key="url"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <Input
-                      value={imageUrl}
-                      onChange={e => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/poster.jpg"
-                      className="bg-secondary/30"
-                    />
-                    {imageUrl && (
-                      <div className="mt-2 relative rounded-lg overflow-hidden aspect-[2/3] w-24 border">
-                        <img src={imageUrl} alt="preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = none)} />
-                      </div>
-                    )}
+                  <motion.div key="url" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}>
+                    <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)}
+                      placeholder="https://..." className="bg-secondary/30" />
                   </motion.div>
                 ) : (
-                  <motion.div
-                    key="file"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="space-y-2"
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    {!uploadPreview ? (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full border-2 border-dashed border-border hover:border-primary rounded-xl p-6 flex flex-col items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Upload className="w-8 h-8" />
-                        <span className="text-sm font-medium">Нажмите для выбора файла</span>
-                        <span className="text-xs">JPG, PNG, WEBP до 10 МБ</span>
-                      </button>
-                    ) : (
-                      <div className="relative">
-                        <div className="rounded-lg overflow-hidden aspect-[2/3] w-24 border">
-                          <img src={uploadPreview} alt="preview" className="w-full h-full object-cover" />
+                  <motion.div key="file" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
+                    className="space-y-2">
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className={cn(
+                        "border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors",
+                        uploadPreview ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/40 hover:bg-secondary/20"
+                      )}
+                    >
+                      {!uploadPreview ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <Upload className="w-8 h-8" />
+                          <p className="text-sm">Нажмите для выбора файла</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => { setUploadFile(null); setUploadPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                          className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5 shadow"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                        <p className="mt-1 text-xs text-muted-foreground truncate max-w-[200px]">{uploadFile?.name}</p>
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 text-xs text-primary underline">Сменить файл</button>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <img src={uploadPreview} alt="preview" className="w-16 h-20 object-cover rounded-lg" />
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-primary">Файл выбран</p>
+                            <p className="mt-1 text-xs text-muted-foreground truncate max-w-[200px]">{uploadFile?.name}</p>
+                          </div>
+                          <Button type="button" size="sm" variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); setUploadFile(null); setUploadPreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -403,6 +418,73 @@ export function AdminDashboard() {
               />
               <p className="text-xs text-muted-foreground ml-1">Ссылка на YouTube или ID видео (11 символов)</p>
             </div>
+
+            {/* Clip section */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold ml-1">🎭 Смешной клип (макс. 1 мин, 750p)</label>
+              <div className="flex gap-2 mb-2">
+                <Button type="button" size="sm" variant={clipMode === "url" ? "default" : "outline"}
+                  className="gap-1.5 text-xs h-7" onClick={() => setClipMode("url")}>
+                  <LinkIcon className="w-3 h-3" /> По ссылке
+                </Button>
+                <Button type="button" size="sm" variant={clipMode === "file" ? "default" : "outline"}
+                  className="gap-1.5 text-xs h-7" onClick={() => setClipMode("file")}>
+                  <Upload className="w-3 h-3" /> Загрузить файл
+                </Button>
+              </div>
+              <AnimatePresence mode="wait">
+                {clipMode === "url" ? (
+                  <motion.div key="clip-url" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}>
+                    <Input
+                      value={clipUrl}
+                      onChange={e => setClipUrl(e.target.value)}
+                      placeholder="/uploads/clips/filename.mp4"
+                      className="bg-secondary/30"
+                    />
+                    <p className="text-xs text-muted-foreground ml-1 mt-1">Путь к загруженному видеофайлу</p>
+                  </motion.div>
+                ) : (
+                  <motion.div key="clip-file" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}>
+                    <input ref={clipFileRef} type="file" accept="video/*" className="hidden" onChange={handleClipFileChange} />
+                    <div
+                      onClick={() => clipFileRef.current?.click()}
+                      className={cn(
+                        "border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors",
+                        clipFileName ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/40 hover:bg-secondary/20"
+                      )}
+                    >
+                      {!clipFileName ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <Video className="w-8 h-8" />
+                          <p className="text-sm">Нажмите для выбора видео</p>
+                          <p className="text-xs">MP4, WebM до 100 МБ</p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="bg-primary/10 rounded-lg p-3">
+                            <Video className="w-6 h-6 text-primary" />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-primary">Видео выбрано</p>
+                            <p className="mt-1 text-xs text-muted-foreground truncate max-w-[200px]">{clipFileName}</p>
+                          </div>
+                          <Button type="button" size="sm" variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); setClipFile(null); setClipFileName(null); if (clipFileRef.current) clipFileRef.current.value = ""; }}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {isUploadingClip && (
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Загружаем клип...
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-semibold ml-1">Описание <span className="text-destructive">*</span></label>
               <Textarea
@@ -416,8 +498,8 @@ export function AdminDashboard() {
           </div>
           <DialogFooter className="gap-3 pt-2">
             <Button variant="ghost" onClick={() => { setIsModalOpen(false); resetForm(); }} className="w-full sm:w-auto">Отмена</Button>
-            <Button onClick={handleSave} disabled={createMovie.isPending || updateMovie.isPending || isUploading} className="w-full sm:w-auto font-bold">
-              {(createMovie.isPending || updateMovie.isPending || isUploading) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button onClick={handleSave} disabled={isBusy} className="w-full sm:w-auto font-bold">
+              {isBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingId ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>

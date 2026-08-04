@@ -8,6 +8,7 @@ export const moviesTable = pgTable("movies", {
   description: text("description").notNull(),
   imageUrl: text("image_url").notNull(),
   trailerUrl: text("trailer_url"),
+  clipUrl: text("clip_url"),
   year: integer("year"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

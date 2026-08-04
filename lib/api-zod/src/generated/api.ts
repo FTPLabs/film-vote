@@ -25,6 +25,8 @@ export const ListMoviesResponseItem = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
@@ -47,6 +49,8 @@ export const CreateMovieBody = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish()
 })
 
@@ -55,6 +59,8 @@ export const CreateMovieResponse = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -72,6 +78,8 @@ export const GetMovieResponse = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
@@ -97,6 +105,8 @@ export const UpdateMovieBody = zod.object({
   "title": zod.string().optional(),
   "description": zod.string().optional(),
   "imageUrl": zod.string().optional(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish()
 })
 
@@ -105,6 +115,8 @@ export const UpdateMovieResponse = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -135,7 +147,7 @@ export const GetMyVoteResponse = zod.object({
 
 
 /**
- * @summary Cast or update a vote for a movie
+ * @summary Cast or update a vote
  */
 export const CastVoteParams = zod.object({
   "id": zod.coerce.number()
@@ -153,7 +165,17 @@ export const CastVoteResponse = zod.object({
 
 
 /**
- * @summary Get overall statistics
+ * @summary Reset all votes for a movie (admin only)
+ */
+export const ResetVotesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResetVotesResponse = zod.unknown()
+
+
+/**
+ * @summary Get overall voting statistics
  */
 export const GetStatsResponse = zod.object({
   "totalMovies": zod.number(),
@@ -163,6 +185,8 @@ export const GetStatsResponse = zod.object({
   "title": zod.string(),
   "description": zod.string(),
   "imageUrl": zod.string(),
+  "trailerUrl": zod.string().nullish().describe('YouTube trailer URL or video ID'),
+  "clipUrl": zod.string().nullish().describe('Funny scene clip URL (non-YouTube, hosted locally)'),
   "year": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "totalVotes": zod.number(),
