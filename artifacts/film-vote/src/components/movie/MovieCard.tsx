@@ -2,15 +2,16 @@ import { Link } from "wouter";
 import { ThumbsUp, ThumbsDown, Minus, Film } from "lucide-react";
 import type { MovieWithStats } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface MovieCardProps {
   movie: MovieWithStats;
 }
 
-const VOTE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  for:     { label: "За",          color: "text-green-100",  bg: "bg-green-600/90" },
-  neutral: { label: "Нейтрально",  color: "text-yellow-100", bg: "bg-yellow-600/90" },
-  against: { label: "Против",      color: "text-red-100",    bg: "bg-red-600/90" },
+const VOTE_LABELS: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
+  for:     { label: "За",          color: "text-green-100",  bg: "bg-green-600/90",  emoji: "👍" },
+  neutral: { label: "Нейтрально",  color: "text-yellow-100", bg: "bg-yellow-600/90", emoji: "🤔" },
+  against: { label: "Против",      color: "text-red-100",    bg: "bg-red-600/90",    emoji: "👎" },
 };
 
 export function MovieCard({ movie }: MovieCardProps) {
@@ -22,18 +23,24 @@ export function MovieCard({ movie }: MovieCardProps) {
   const isHighFor = forPct >= 60;
 
   return (
-    <div className="group relative flex flex-col bg-card rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+    <motion.div
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="group relative flex flex-col bg-card rounded-2xl border shadow-sm hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+    >
       <Link href={`/film/${movie.id}`} className="absolute inset-0 z-10">
         <span className="sr-only">Смотреть {movie.title}</span>
       </Link>
 
       <div className="aspect-[2/3] w-full relative overflow-hidden bg-muted">
         {movie.imageUrl ? (
-          <img
+          <motion.img
             src={movie.imageUrl}
             alt={`Постер ${movie.title}`}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-cover"
             loading="lazy"
+            whileHover={{ scale: 1.07 }}
+            transition={{ duration: 0.4 }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -46,17 +53,30 @@ export function MovieCard({ movie }: MovieCardProps) {
         {/* Top badge — user vote */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-20">
           {hasVoted && movie.userVote && VOTE_LABELS[movie.userVote] ? (
-            <div className={cn(
-              "px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1.5",
-              VOTE_LABELS[movie.userVote].bg, VOTE_LABELS[movie.userVote].color
-            )}>
-              {movie.userVote === "for" && <ThumbsUp className="w-3 h-3" />}
-              {movie.userVote === "neutral" && <Minus className="w-3 h-3" />}
-              {movie.userVote === "against" && <ThumbsDown className="w-3 h-3" />}
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400 }}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1.5",
+                VOTE_LABELS[movie.userVote].bg, VOTE_LABELS[movie.userVote].color
+              )}
+            >
+              <span>{VOTE_LABELS[movie.userVote].emoji}</span>
               {VOTE_LABELS[movie.userVote].label}
-            </div>
+            </motion.div>
           ) : (
             <div />
+          )}
+
+          {isHighFor && (
+            <motion.div
+              animate={{ rotate: [-5, 5, -5] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              className="text-lg"
+            >
+              🔥
+            </motion.div>
           )}
         </div>
 
@@ -74,13 +94,37 @@ export function MovieCard({ movie }: MovieCardProps) {
         {movie.totalVotes > 0 ? (
           <div className="mb-3">
             <div className="flex h-2 rounded-full overflow-hidden gap-px">
-              {forPct > 0 && <div className="bg-green-500 transition-all" style={{ width: `${forPct}%` }} title={`За: ${forPct}%`} />}
-              {(stats.neutralPercent ?? 0) > 0 && <div className="bg-yellow-400 transition-all" style={{ width: `${stats.neutralPercent}%` }} title={`Нейтрально: ${stats.neutralPercent}%`} />}
-              {(stats.againstPercent ?? 0) > 0 && <div className="bg-red-500 transition-all" style={{ width: `${stats.againstPercent}%` }} title={`Против: ${stats.againstPercent}%`} />}
+              {forPct > 0 && (
+                <motion.div
+                  className="bg-green-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${forPct}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  title={`За: ${forPct}%`}
+                />
+              )}
+              {(stats.neutralPercent ?? 0) > 0 && (
+                <motion.div
+                  className="bg-yellow-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${stats.neutralPercent}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                  title={`Нейтрально: ${stats.neutralPercent}%`}
+                />
+              )}
+              {(stats.againstPercent ?? 0) > 0 && (
+                <motion.div
+                  className="bg-red-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${stats.againstPercent}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                  title={`Против: ${stats.againstPercent}%`}
+                />
+              )}
             </div>
             <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-              <span className="text-green-600 font-semibold">{forPct}% за</span>
-              <span className="text-red-500 font-semibold">{stats.againstPercent ?? 0}% против</span>
+              <span className="text-green-600 font-semibold">👍 {forPct}%</span>
+              <span className="text-red-500 font-semibold">👎 {stats.againstPercent ?? 0}%</span>
             </div>
           </div>
         ) : null}
@@ -100,11 +144,11 @@ export function MovieCard({ movie }: MovieCardProps) {
                   : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
               )}
             >
-              {hasVoted ? "Изменить" : "Голосовать"}
+              {hasVoted ? "✏️ Изменить" : "🗳️ Голосовать"}
             </Link>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

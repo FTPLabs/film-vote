@@ -1,13 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Film, TrendingUp, Settings } from "lucide-react";
+import { Film, Home, TrendingUp, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [location] = useLocation();
 
   const links = [
-    { href: "/", label: "Афиша", icon: Film },
-    { href: "/top", label: "Топ ожиданий", icon: TrendingUp },
+    { href: "/", label: "Афиша", icon: Home },
+    { href: "/top", label: "Топ рейтинга", icon: TrendingUp },
   ];
 
   return (
@@ -18,9 +18,16 @@ export function Navbar() {
             <div className="bg-primary text-primary-foreground p-1.5 rounded-lg shadow-sm">
               <Film className="w-5 h-5" />
             </div>
-            <span className="font-display font-bold text-xl tracking-tight">Голосовалка</span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-display font-bold text-base tracking-tight">
+                Выбор фильма
+              </span>
+              <span className="text-primary/80 text-xs font-medium">
+                для деревни
+              </span>
+            </div>
           </Link>
-          
+
           <nav className="hidden md:flex items-center gap-1">
             {links.map((link) => {
               const isActive = location === link.href;
@@ -31,8 +38,8 @@ export function Navbar() {
                   href={link.href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    isActive 
-                      ? "bg-secondary text-secondary-foreground" 
+                    isActive
+                      ? "bg-secondary text-secondary-foreground"
                       : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                   )}
                 >
