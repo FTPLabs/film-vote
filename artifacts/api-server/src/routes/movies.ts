@@ -37,9 +37,9 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, voter
   const voteStats = await db
     .select({
       totalVotes: sql<number>`count(*)::int`,
-      forCount: sql<number>`count(*) filter (where ${votesTable.voteType} = for)::int`,
-      neutralCount: sql<number>`count(*) filter (where ${votesTable.voteType} = neutral)::int`,
-      againstCount: sql<number>`count(*) filter (where ${votesTable.voteType} = against)::int`,
+      forCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'for')::int`,
+      neutralCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'neutral')::int`,
+      againstCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'against')::int`,
     })
     .from(votesTable)
     .where(eq(votesTable.movieId, movie.id));
