@@ -98,23 +98,23 @@ export function MovieCard({ movie }: MovieCardProps) {
 
         {/* Bottom title */}
         <motion.div
-          className="absolute bottom-0 left-0 right-0 p-4 z-20 text-white"
+          className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 z-20 text-white"
           initial={{ y: 4, opacity: 0.8 }}
           whileHover={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.2 }}
         >
-          <h3 className="font-display font-bold text-xl leading-tight line-clamp-2 text-white/95 drop-shadow-md">
+          <h3 className="font-display font-bold text-sm sm:text-xl leading-tight line-clamp-2 text-white/95 drop-shadow-md">
             {movie.title}
           </h3>
-          {movie.year && <p className="text-white/70 text-sm font-medium mt-1">{movie.year}</p>}
+          {movie.year && <p className="text-white/70 text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{movie.year}</p>}
         </motion.div>
       </div>
 
-      <div className="p-4 flex flex-col flex-1 z-20 bg-card">
+      <div className="p-2 sm:p-4 flex flex-col flex-1 z-20 bg-card">
         {/* Vote bar */}
         {movie.totalVotes > 0 ? (
-          <div className="mb-3">
-            <div className="flex h-2.5 rounded-full overflow-hidden gap-px bg-muted">
+          <div className="mb-2 sm:mb-3">
+            <div className="flex h-2 sm:h-2.5 rounded-full overflow-hidden gap-px bg-muted">
               {forPct > 0 && (
                 <motion.div
                   className="bg-green-500 rounded-l-full"
@@ -143,33 +143,40 @@ export function MovieCard({ movie }: MovieCardProps) {
                 />
               )}
             </div>
-            <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+            <div className="hidden sm:flex justify-between mt-1.5 text-xs text-muted-foreground">
               <span className="text-green-600 font-semibold">👍 {forPct}%</span>
               <span className="text-yellow-600 font-semibold">🤔 {stats.neutralPercent ?? 0}%</span>
               <span className="text-red-500 font-semibold">👎 {stats.againstPercent ?? 0}%</span>
             </div>
+            <div className="flex sm:hidden justify-between mt-1 text-[10px] text-muted-foreground">
+              <span className="text-green-600 font-bold">{forPct}%</span>
+              <span className="text-yellow-600 font-bold">{stats.neutralPercent ?? 0}%</span>
+              <span className="text-red-500 font-bold">{stats.againstPercent ?? 0}%</span>
+            </div>
           </div>
         ) : (
-          <div className="mb-3 text-xs text-muted-foreground italic">Голосов пока нет</div>
+          <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs text-muted-foreground italic">Голосов нет</div>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-1">
+        <div className="flex items-center justify-between mt-auto pt-0.5 sm:pt-1">
           <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Голосов</span>
-            <span className="text-sm font-semibold">{movie.totalVotes}</span>
+            <span className="text-[9px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">Голосов</span>
+            <span className="text-xs sm:text-sm font-semibold">{movie.totalVotes}</span>
           </div>
           <div className="relative z-20">
             <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }}>
               <Link
                 href={`/film/${movie.id}`}
                 className={cn(
-                  "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-semibold transition-colors",
+                  "inline-flex items-center justify-center rounded-full font-semibold transition-colors",
+                  "h-7 px-2 text-[10px] sm:h-9 sm:px-4 sm:text-sm",
                   hasVoted
                     ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                     : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 )}
               >
-                {hasVoted ? "✏️ Изменить" : "🗳️ Голосовать"}
+                {hasVoted ? "✏️" : "🗳️"}
+                <span className="hidden sm:inline ml-1">{hasVoted ? "Изменить" : "Голосовать"}</span>
               </Link>
             </motion.div>
           </div>

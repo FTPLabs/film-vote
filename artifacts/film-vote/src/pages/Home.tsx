@@ -14,7 +14,7 @@ function AnimatedHeader() {
       className="max-w-2xl"
     >
       <motion.h1
-        className="text-4xl md:text-5xl font-display font-bold text-foreground mb-4"
+        className="text-2xl md:text-5xl font-display font-bold text-foreground mb-2 md:mb-4"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
@@ -59,7 +59,7 @@ function MovieGrid({ movies }: { movies: import("@workspace/api-client-react").M
   return (
     <div
       ref={ref}
-      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+      className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
     >
       {(movies ?? []).map((movie, index) => (
         <motion.div
