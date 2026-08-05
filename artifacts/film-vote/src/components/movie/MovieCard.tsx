@@ -1,18 +1,27 @@
 import { Link } from "wouter";
 import { Film } from "lucide-react";
 import type { MovieWithStats } from "@workspace/api-client-react";
+import { useCastVote, getListMoviesQueryKey, getGetMovieQueryKey, getGetMyVoteQueryKey, getGetStatsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 interface MovieCardProps {
   movie: MovieWithStats;
 }
 
 const VOTE_LABELS: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
-  for:     { label: "За",          color: "text-green-100",  bg: "bg-green-600/90",  emoji: "👍" },
-  neutral: { label: "Нейтрально",  color: "text-yellow-100", bg: "bg-yellow-600/90", emoji: "🤔" },
-  against: { label: "Против",      color: "text-red-100",    bg: "bg-red-600/90",    emoji: "👎" },
+  for:     { label: "За",         color: "text-green-100",  bg: "bg-green-600/90",  emoji: "👍" },
+  neutral: { label: "Нейтрально", color: "text-yellow-100", bg: "bg-yellow-600/90", emoji: "🤔" },
+  against: { label: "Против",     color: "text-red-100",    bg: "bg-red-600/90",    emoji: "👎" },
 };
+
+const QUICK_VOTE_OPTIONS = [
+  { value: "for" as const,     emoji: "👍", label: "За",      activeClass: "bg-green-500 text-white border-green-500",   idleClass: "bg-white/10 hover:bg-green-500/80 hover:text-white border-white/20" },
+  { value: "neutral" as const, emoji: "🤔", label: "Норм",    activeClass: "bg-yellow-500 text-white border-yellow-500", idleClass: "bg-white/10 hover:bg-yellow-500/80 hover:text-white border-white/20" },
+  { value: "against" as const, emoji: "👎", label: "Против",  activeClass: "bg-red-500 text-white border-red-500",       idleClass: "bg-white/10 hover:bg-red-500/80 hover:text-white border-white/20" },
+];
 
 export function MovieCard({ movie }: MovieCardProps) {
   const hasVoted = movie.userVote != null;
@@ -23,26 +32,49 @@ export function MovieCard({ movie }: MovieCardProps) {
   const isHighFor = forPct >= 60;
   const isNew = movie.totalVotes === 0;
 
+  const queryClient = useQueryClient();
+  const castVote = useCastVote();
+
+  function handleQuickVote(voteType: "for" | "neutral" | "against") {
+    castVote.mutate(
+      { id: movie.id, data: { voteType } as unknown as import("@workspace/api-client-react").VoteInput },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListMoviesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetMovieQueryKey(movie.id) });
+          queryClient.invalidateQueries({ queryKey: getGetMyVoteQueryKey(movie.id) });
+          queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });
+          const labels: Record<string, string> = { for: "За 👍", neutral: "Нейтрально 🤔", against: "Против 👎" };
+          toast.success(`Голос учтён: ${labels[voteType]}`, { description: movie.title });
+        },
+        onError: () => {
+          toast.error("Ошибка при голосовании");
+        },
+      }
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30, scale: 0.93 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      whileHover={{ y: -6, scale: 1.03 }}
+      whileHover={{ y: -4, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 280, damping: 22 }}
       className="group relative flex flex-col bg-card rounded-2xl border shadow-sm hover:shadow-2xl transition-shadow duration-300 overflow-hidden"
     >
-      <Link href={`/film/${movie.id}`} className="absolute inset-0 z-10">
-        <span className="sr-only">Смотреть {movie.title}</span>
-      </Link>
-
+      {/* Poster */}
       <div className="aspect-[2/3] w-full relative overflow-hidden bg-muted">
+        <Link href={`/film/${movie.id}`} className="absolute inset-0 z-10">
+          <span className="sr-only">Смотреть {movie.title}</span>
+        </Link>
+
         {movie.imageUrl ? (
           <motion.img
             src={movie.imageUrl}
             alt={`Постер ${movie.title}`}
             className="w-full h-full object-cover"
             loading="lazy"
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.07 }}
             transition={{ duration: 0.5 }}
           />
         ) : (
@@ -52,76 +84,66 @@ export function MovieCard({ movie }: MovieCardProps) {
         )}
 
         <motion.div
-          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent"
+          className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"
           initial={{ opacity: 0.5 }}
-          whileHover={{ opacity: 0.85 }}
+          whileHover={{ opacity: 0.9 }}
           transition={{ duration: 0.3 }}
         />
 
         {/* Top badges */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-20">
+        <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-20">
           {hasVoted && movie.userVote && VOTE_LABELS[movie.userVote] ? (
             <motion.div
-              initial={{ scale: 0, opacity: 0, rotate: -10 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1.5",
+                "px-2 py-0.5 rounded-full text-xs font-bold backdrop-blur-md border border-white/10 shadow-sm flex items-center gap-1",
                 VOTE_LABELS[movie.userVote].bg, VOTE_LABELS[movie.userVote].color
               )}
             >
-              <span>{VOTE_LABELS[movie.userVote].emoji}</span>
-              {VOTE_LABELS[movie.userVote].label}
+              {VOTE_LABELS[movie.userVote].emoji} {VOTE_LABELS[movie.userVote].label}
             </motion.div>
           ) : isNew ? (
             <motion.div
               animate={{ scale: [1, 1.08, 1] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary/90 text-white backdrop-blur-md border border-white/10 shadow-sm"
+              className="px-2 py-0.5 rounded-full text-xs font-bold bg-primary/90 text-white backdrop-blur-md border border-white/10 shadow-sm"
             >
               🆕 Новинка
             </motion.div>
           ) : (
             <div />
           )}
-
           {isHighFor && (
             <motion.div
               animate={{ rotate: [-8, 8, -8], scale: [1, 1.15, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-              className="text-lg drop-shadow"
+              transition={{ repeat: Infinity, duration: 2.5 }}
+              className="text-lg leading-none"
             >
               🔥
             </motion.div>
           )}
         </div>
 
-        {/* Bottom title */}
-        <motion.div
-          className="absolute bottom-0 left-0 right-0 p-2 sm:p-4 z-20 text-white"
-          initial={{ y: 4, opacity: 0.8 }}
-          whileHover={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <h3 className="font-display font-bold text-sm sm:text-xl leading-tight line-clamp-2 text-white/95 drop-shadow-md">
-            {movie.title}
-          </h3>
-          {movie.year && <p className="text-white/70 text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{movie.year}</p>}
-        </motion.div>
+        {/* Bottom overlay: title + year */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-2 pb-2 pt-6">
+          <p className="text-white font-bold text-sm leading-tight line-clamp-2 drop-shadow">{movie.title}</p>
+          {movie.year && <p className="text-white/70 text-xs mt-0.5">{movie.year}</p>}
+        </div>
       </div>
 
-      <div className="p-2 sm:p-4 flex flex-col flex-1 z-20 bg-card">
+      {/* Card body */}
+      <div className="flex flex-col p-2 gap-1.5 flex-1">
         {/* Vote bar */}
         {movie.totalVotes > 0 ? (
-          <div className="mb-2 sm:mb-3">
-            <div className="flex h-2 sm:h-2.5 rounded-full overflow-hidden gap-px bg-muted">
+          <div>
+            <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
               {forPct > 0 && (
                 <motion.div
                   className="bg-green-500 rounded-l-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${forPct}%` }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
-                  title={`За: ${forPct}%`}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                 />
               )}
               {(stats.neutralPercent ?? 0) > 0 && (
@@ -129,8 +151,7 @@ export function MovieCard({ movie }: MovieCardProps) {
                   className="bg-yellow-400"
                   initial={{ width: 0 }}
                   animate={{ width: `${stats.neutralPercent}%` }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                  title={`Нейтрально: ${stats.neutralPercent}%`}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
                 />
               )}
               {(stats.againstPercent ?? 0) > 0 && (
@@ -138,48 +159,45 @@ export function MovieCard({ movie }: MovieCardProps) {
                   className="bg-red-500 rounded-r-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${stats.againstPercent}%` }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
-                  title={`Против: ${stats.againstPercent}%`}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
                 />
               )}
             </div>
-            <div className="hidden sm:flex justify-between mt-1.5 text-xs text-muted-foreground">
-              <span className="text-green-600 font-semibold">👍 {forPct}%</span>
-              <span className="text-yellow-600 font-semibold">🤔 {stats.neutralPercent ?? 0}%</span>
-              <span className="text-red-500 font-semibold">👎 {stats.againstPercent ?? 0}%</span>
-            </div>
-            <div className="flex sm:hidden justify-between mt-1 text-[10px] text-muted-foreground">
+            <div className="flex justify-between mt-1 text-[9px] text-muted-foreground">
               <span className="text-green-600 font-bold">{forPct}%</span>
-              <span className="text-yellow-600 font-bold">{stats.neutralPercent ?? 0}%</span>
+              <span className="text-muted-foreground text-[9px]">{movie.totalVotes} гол.</span>
               <span className="text-red-500 font-bold">{stats.againstPercent ?? 0}%</span>
             </div>
           </div>
         ) : (
-          <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs text-muted-foreground italic">Голосов нет</div>
+          <div className="text-[10px] text-muted-foreground italic">Голосов нет</div>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-0.5 sm:pt-1">
-          <div className="flex flex-col">
-            <span className="text-[9px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">Голосов</span>
-            <span className="text-xs sm:text-sm font-semibold">{movie.totalVotes}</span>
-          </div>
-          <div className="relative z-20">
-            <motion.div whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }}>
-              <Link
-                href={`/film/${movie.id}`}
-                className={cn(
-                  "inline-flex items-center justify-center rounded-full font-semibold transition-colors",
-                  "h-7 px-2 text-[10px] sm:h-9 sm:px-4 sm:text-sm",
-                  hasVoted
-                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                )}
-              >
-                {hasVoted ? "✏️" : "🗳️"}
-                <span className="hidden sm:inline ml-1">{hasVoted ? "Изменить" : "Голосовать"}</span>
-              </Link>
-            </motion.div>
-          </div>
+        {/* Quick vote buttons */}
+        <div className="flex gap-1 mt-auto">
+          {QUICK_VOTE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handleQuickVote(opt.value)}
+              disabled={castVote.isPending}
+              title={opt.label}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-0.5 rounded-lg border text-[11px] font-semibold py-1.5 transition-all duration-150 relative z-20",
+                movie.userVote === opt.value ? opt.activeClass : opt.idleClass,
+                "disabled:opacity-50"
+              )}
+            >
+              <span>{opt.emoji}</span>
+              <span className="hidden sm:inline text-[10px]">{opt.label}</span>
+            </button>
+          ))}
+          <Link
+            href={`/film/${movie.id}`}
+            className="flex items-center justify-center px-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-[11px] font-semibold transition-all relative z-20"
+            title="Подробнее"
+          >
+            ›
+          </Link>
         </div>
       </div>
     </motion.div>

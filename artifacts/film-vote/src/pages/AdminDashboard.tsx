@@ -87,7 +87,6 @@ export function AdminDashboard() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [trailerUrl, setTrailerUrl] = useState("");
   const [clipUrl, setClipUrl] = useState("");
   const [year, setYear] = useState<string>("");
   const [imageMode, setImageMode] = useState<"url" | "file">("url");
@@ -108,7 +107,6 @@ export function AdminDashboard() {
     setTitle("");
     setDescription("");
     setImageUrl("");
-    setTrailerUrl("");
     setClipUrl("");
     setYear("");
     setImageMode("url");
@@ -129,7 +127,6 @@ export function AdminDashboard() {
     setTitle(movie.title);
     setDescription(movie.description);
     setImageUrl(movie.imageUrl);
-    setTrailerUrl(movie.trailerUrl ?? "");
     setClipUrl(movie.clipUrl ?? "");
     setYear(movie.year ? movie.year.toString() : "");
     setImageMode("url");
@@ -194,7 +191,6 @@ export function AdminDashboard() {
       title,
       description,
       imageUrl: finalImageUrl,
-      trailerUrl: trailerUrl.trim() || null,
       clipUrl: finalClipUrl.trim() || null,
       year: year ? parseInt(year, 10) : null
     };
@@ -406,17 +402,6 @@ export function AdminDashboard() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold ml-1">🎬 YouTube трейлер</label>
-              <Input
-                value={trailerUrl}
-                onChange={e => setTrailerUrl(e.target.value)}
-                placeholder="https://youtube.com/watch?v=... или ID видео"
-                className="bg-secondary/30"
-              />
-              <p className="text-xs text-muted-foreground ml-1">Ссылка на YouTube или ID видео (11 символов)</p>
             </div>
 
             {/* Clip section */}

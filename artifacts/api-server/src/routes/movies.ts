@@ -15,7 +15,16 @@ import { verifyAdminToken } from "../lib/auth";
 
 const router: IRouter = Router();
 
-function getClientIp(req: import("express").Request): string {
+/**
+ * Возвращает идентификатор голосующего.
+ * Приоритет: X-Voter-ID (UUID из localStorage, VPN-safe) → X-Forwarded-For → socket IP.
+ * Voter ID хранится в колонке ipAddress — тип text, обратная совместимость полная.
+ */
+function getVoterIdentifier(req: import("express").Request): string {
+  const voterIdHeader = req.headers["x-voter-id"];
+  if (voterIdHeader && typeof voterIdHeader === "string" && /^[0-9a-f-]{36}$/i.test(voterIdHeader)) {
+    return `vid:${voterIdHeader}`;
+  }
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) {
     const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(",")[0];
@@ -24,13 +33,13 @@ function getClientIp(req: import("express").Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
 
-async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userIp: string) {
+async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, voterKey: string) {
   const voteStats = await db
     .select({
       totalVotes: sql<number>`count(*)::int`,
-      forCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'for')::int`,
-      neutralCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'neutral')::int`,
-      againstCount: sql<number>`count(*) filter (where ${votesTable.voteType} = 'against')::int`,
+      forCount: sql<number>`count(*) filter (where ${votesTable.voteType} = for)::int`,
+      neutralCount: sql<number>`count(*) filter (where ${votesTable.voteType} = neutral)::int`,
+      againstCount: sql<number>`count(*) filter (where ${votesTable.voteType} = against)::int`,
     })
     .from(votesTable)
     .where(eq(votesTable.movieId, movie.id));
@@ -47,7 +56,7 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
   const userVoteResult = await db
     .select({ voteType: votesTable.voteType })
     .from(votesTable)
-    .where(sql`${votesTable.movieId} = ${movie.id} AND ${votesTable.ipAddress} = ${userIp}`);
+    .where(sql`${votesTable.movieId} = ${movie.id} AND ${votesTable.ipAddress} = ${voterKey}`);
 
   const userVote = userVoteResult[0]?.voteType ?? null;
 
@@ -56,7 +65,6 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
     title: movie.title,
     description: movie.description,
     imageUrl: movie.imageUrl,
-    trailerUrl: movie.trailerUrl ?? null,
     clipUrl: movie.clipUrl ?? null,
     year: movie.year ?? null,
     createdAt: movie.createdAt.toISOString(),
@@ -74,9 +82,9 @@ async function buildMovieWithStats(movie: typeof moviesTable.$inferSelect, userI
 
 // GET /movies
 router.get("/movies", async (req, res): Promise<void> => {
-  const userIp = getClientIp(req);
+  const voterKey = getVoterIdentifier(req);
   const movies = await db.select().from(moviesTable).orderBy(desc(moviesTable.createdAt));
-  const moviesWithStats = await Promise.all(movies.map(m => buildMovieWithStats(m, userIp)));
+  const moviesWithStats = await Promise.all(movies.map(m => buildMovieWithStats(m, voterKey)));
   res.json(moviesWithStats);
 });
 
@@ -94,7 +102,6 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
       title: body.title,
       description: body.description,
       imageUrl: body.imageUrl,
-      trailerUrl: body.trailerUrl ?? null,
       clipUrl: body.clipUrl ?? null,
       year: body.year ?? null,
     })
@@ -104,7 +111,6 @@ router.post("/movies", verifyAdminToken, async (req, res): Promise<void> => {
     title: movie!.title,
     description: movie!.description,
     imageUrl: movie!.imageUrl,
-    trailerUrl: movie!.trailerUrl ?? null,
     clipUrl: movie!.clipUrl ?? null,
     year: movie!.year ?? null,
     createdAt: movie!.createdAt.toISOString(),
@@ -118,13 +124,13 @@ router.get("/movies/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-  const userIp = getClientIp(req);
+  const voterKey = getVoterIdentifier(req);
   const [movie] = await db.select().from(moviesTable).where(eq(moviesTable.id, params.data.id));
   if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
     return;
   }
-  const result = await buildMovieWithStats(movie, userIp);
+  const result = await buildMovieWithStats(movie, voterKey);
   res.json(result);
 });
 
@@ -141,17 +147,15 @@ router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =>
     return;
   }
   const body = parsed.data;
-  const updateData: Record<string, unknown> = {};
-  if (body.title !== undefined) updateData.title = body.title;
-  if (body.description !== undefined) updateData.description = body.description;
-  if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl;
-  if ("trailerUrl" in body) updateData.trailerUrl = body.trailerUrl ?? null;
-  if ("clipUrl" in body) updateData.clipUrl = body.clipUrl ?? null;
-  if ("year" in body) updateData.year = body.year ?? null;
-
   const [movie] = await db
     .update(moviesTable)
-    .set(updateData)
+    .set({
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
+      ...(body.clipUrl !== undefined ? { clipUrl: body.clipUrl } : {}),
+      ...(body.year !== undefined ? { year: body.year } : {}),
+    })
     .where(eq(moviesTable.id, params.data.id))
     .returning();
   if (!movie) {
@@ -163,7 +167,6 @@ router.patch("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =>
     title: movie.title,
     description: movie.description,
     imageUrl: movie.imageUrl,
-    trailerUrl: movie.trailerUrl ?? null,
     clipUrl: movie.clipUrl ?? null,
     year: movie.year ?? null,
     createdAt: movie.createdAt.toISOString(),
@@ -183,21 +186,21 @@ router.delete("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =
     return;
   }
   await db.delete(moviesTable).where(eq(moviesTable.id, params.data.id));
-  res.status(204).send();
+  res.json({ movieId: params.data.id, deleted: true });
 });
 
-// GET /movies/:id/vote
-router.get("/movies/:id/vote", async (req, res): Promise<void> => {
+// GET /movies/:id/my-vote
+router.get("/movies/:id/my-vote", async (req, res): Promise<void> => {
   const params = GetMyVoteParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
     return;
   }
-  const userIp = getClientIp(req);
+  const voterKey = getVoterIdentifier(req);
   const [vote] = await db
     .select({ voteType: votesTable.voteType })
     .from(votesTable)
-    .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
+    .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${voterKey}`);
   res.json({ movieId: params.data.id, voted: !!vote, voteType: vote?.voteType ?? null });
 });
 
@@ -218,7 +221,7 @@ router.post("/movies/:id/vote", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Тип голоса должен быть: for, neutral или against" });
     return;
   }
-  const userIp = getClientIp(req);
+  const voterKey = getVoterIdentifier(req);
   const [movie] = await db.select({ id: moviesTable.id }).from(moviesTable).where(eq(moviesTable.id, params.data.id));
   if (!movie) {
     res.status(404).json({ error: "Фильм не найден" });
@@ -227,17 +230,17 @@ router.post("/movies/:id/vote", async (req, res): Promise<void> => {
   const existingVotes = await db
     .select({ id: votesTable.id })
     .from(votesTable)
-    .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
+    .where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${voterKey}`);
   const isNew = existingVotes.length === 0;
   if (isNew) {
-    await db.insert(votesTable).values({ movieId: params.data.id, ipAddress: userIp, voteType });
+    await db.insert(votesTable).values({ movieId: params.data.id, ipAddress: voterKey, voteType });
   } else {
-    await db.update(votesTable).set({ voteType }).where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${userIp}`);
+    await db.update(votesTable).set({ voteType }).where(sql`${votesTable.movieId} = ${params.data.id} AND ${votesTable.ipAddress} = ${voterKey}`);
   }
   res.json({ movieId: params.data.id, voteType, isNew });
 });
 
-// DELETE /movies/:id/votes (admin) — сброс статистики
+// DELETE /movies/:id/votes (admin) — сброс статистики, голоса не удаляются без явного подтверждения
 router.delete("/movies/:id/votes", verifyAdminToken, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid movie id" }); return; }
