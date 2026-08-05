@@ -18,9 +18,9 @@ const VOTE_LABELS: Record<string, { label: string; color: string; bg: string; em
 };
 
 const QUICK_VOTE_OPTIONS = [
-  { value: "for" as const,     emoji: "👍", label: "За",      activeClass: "bg-green-500 text-white border-green-500",   idleClass: "bg-white/10 hover:bg-green-500/80 hover:text-white border-white/20" },
-  { value: "neutral" as const, emoji: "🤔", label: "Норм",    activeClass: "bg-yellow-500 text-white border-yellow-500", idleClass: "bg-white/10 hover:bg-yellow-500/80 hover:text-white border-white/20" },
-  { value: "against" as const, emoji: "👎", label: "Против",  activeClass: "bg-red-500 text-white border-red-500",       idleClass: "bg-white/10 hover:bg-red-500/80 hover:text-white border-white/20" },
+  { value: "for" as const,     emoji: "👍", label: "За",      activeClass: "bg-green-500 text-white border-green-500",   idleClass: "bg-muted hover:bg-green-100 hover:border-green-400 dark:hover:bg-green-900/50 border-border" },
+  { value: "neutral" as const, emoji: "🤔", label: "Норм",    activeClass: "bg-yellow-500 text-white border-yellow-500", idleClass: "bg-muted hover:bg-yellow-100 hover:border-yellow-400 dark:hover:bg-yellow-900/50 border-border" },
+  { value: "against" as const, emoji: "👎", label: "Против",  activeClass: "bg-red-500 text-white border-red-500",       idleClass: "bg-muted hover:bg-red-100 hover:border-red-400 dark:hover:bg-red-900/50 border-border" },
 ];
 
 export function MovieCard({ movie }: MovieCardProps) {
@@ -193,7 +193,7 @@ export function MovieCard({ movie }: MovieCardProps) {
           ))}
           <Link
             href={`/film/${movie.id}`}
-            className="flex items-center justify-center px-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 text-[11px] font-semibold transition-all relative z-20"
+            className="flex items-center justify-center px-2 rounded-lg border border-border bg-muted hover:bg-accent text-[11px] font-semibold transition-all relative z-20"
             title="Подробнее"
           >
             ›

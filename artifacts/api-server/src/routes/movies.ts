@@ -189,8 +189,8 @@ router.delete("/movies/:id", verifyAdminToken, async (req, res): Promise<void> =
   res.json({ movieId: params.data.id, deleted: true });
 });
 
-// GET /movies/:id/my-vote
-router.get("/movies/:id/my-vote", async (req, res): Promise<void> => {
+// GET /movies/:id/vote
+router.get("/movies/:id/vote", async (req, res): Promise<void> => {
   const params = GetMyVoteParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid movie id" });
